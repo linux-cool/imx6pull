@@ -1,0 +1,98 @@
+{
+  "camera": {
+    "device_id": 0,
+    "device_path": "",
+    "width": 700,
+    "height": 700,
+    "fps": 30,
+    "brightness": -1,
+    "contrast": -1,
+    "saturation": -1,
+    "gain": -1,
+    "exposure": -1,
+    "auto_focus": true,
+    "buffer_size": 3
+  },
+  "detection": {
+    "method": "haar_cascade",
+    "scale_factor": 1.1,
+    "min_neighbors": 3,
+    "min_size": 30,
+    "max_size": 300,
+    "confidence_threshold": 0.7,
+    "nms_threshold": 0.4,
+    "input_width": 300,
+    "input_height": 300,
+    "enable_nms": true,
+    "enable_tracking": false,
+    "max_faces": 10,
+    "haar_cascade_path": "haarcascade_frontalface_alt.xml",
+    "dnn_model_path": "opencv_face_detector_uint8.pb",
+    "dnn_config_path": "opencv_face_detector.pbtxt"
+  },
+  "display": {
+    "show_fps": true,
+    "show_detection_info": true,
+    "show_confidence": false,
+    "window_title": "Face Detection Demo",
+    "detection_color": [0, 255, 0],
+    "text_color": [255, 255, 255],
+    "font_scale": 0.7,
+    "line_thickness": 2
+  },
+  "performance": {
+    "enable_multithreading": true,
+    "max_queue_size": 5,
+    "enable_performance_monitor": true,
+    "enable_gpu": false,
+    "num_threads": 1,
+    "enable_optimization": true,
+    "detection_interval_ms": 33,
+    "enable_frame_skip": false
+  },
+  "output": {
+    "save_video": false,
+    "output_filename": "output.avi",
+    "output_fourcc": "XVID",
+    "output_fps": 30,
+    "save_detections": false,
+    "detections_filename": "detections.json",
+    "save_statistics": false,
+    "statistics_filename": "statistics.json"
+  },
+  "logging": {
+    "enable_logging": false,
+    "log_level": "INFO",
+    "log_file": "face_detection.log",
+    "log_to_console": true,
+    "log_to_file": false,
+    "max_log_file_size_mb": 10,
+    "max_log_files": 5
+  },
+  "debug": {
+    "verbose": false,
+    "enable_debug_display": false,
+    "save_debug_images": false,
+    "debug_images_dir": "debug_images",
+    "enable_profiling": false,
+    "profile_output_file": "profile.json"
+  },
+  "network": {
+    "enable_http_server": false,
+    "http_port": 8080,
+    "enable_websocket": false,
+    "websocket_port": 8081,
+    "enable_streaming": false,
+    "stream_quality": 80,
+    "stream_fps": 15
+  },
+  "advanced": {
+    "memory_limit_mb": 512,
+    "cpu_limit_percent": 80,
+    "temperature_limit_celsius": 70,
+    "auto_adjust_quality": true,
+    "quality_adjustment_interval_ms": 5000,
+    "min_quality_scale": 0.5,
+    "max_quality_scale": 1.0
+  }
+}
