@@ -1,0 +1,146 @@
+{
+    "system": {
+        "name": "IMX6ULL Pro Face Recognition System",
+        "version": "1.0.0",
+        "description": "USB camera driver with face recognition for IMX6ULL Pro",
+        "log_level": "INFO",
+        "log_file": "/var/log/face_recognition.log",
+        "max_log_size_mb": 10,
+        "enable_debug": false
+    },
+    
+    "camera": {
+        "device_id": 0,
+        "device_path": "/dev/video0",
+        "width": 640,
+        "height": 480,
+        "fps": 30,
+        "format": "MJPEG",
+        "buffer_count": 4,
+        "auto_exposure": true,
+        "brightness": 128,
+        "contrast": 128,
+        "saturation": 128,
+        "gain": 64,
+        "white_balance_auto": true,
+        "focus_auto": true
+    },
+    
+    "face_recognition": {
+        "model_path": "/opt/models/",
+        "face_db_path": "/opt/face_db/",
+        "detection_model": "face_detection.ncnn",
+        "recognition_model": "face_recognition.ncnn",
+        "detection_threshold": 0.7,
+        "recognition_threshold": 0.8,
+        "max_faces": 5,
+        "input_width": 320,
+        "input_height": 240,
+        "face_size": 112,
+        "feature_size": 512,
+        "use_landmarks": true,
+        "enable_tracking": false,
+        "quality_threshold": 0.6,
+        "nms_threshold": 0.4,
+        "num_threads": 1
+    },
+    
+    "processing": {
+        "enable_preprocessing": true,
+        "resize_input": true,
+        "normalize_input": true,
+        "detection_interval_ms": 100,
+        "recognition_interval_ms": 200,
+        "max_processing_time_ms": 500,
+        "enable_frame_skip": true,
+        "max_queue_size": 10
+    },
+    
+    "network": {
+        "enable_wifi": true,
+        "wifi_ssid": "your_wifi_ssid",
+        "wifi_password": "your_wifi_password",
+        "wifi_security": "WPA2",
+        "enable_server": true,
+        "server_port": 8080,
+        "server_bind_address": "0.0.0.0",
+        "max_clients": 5,
+        "enable_remote_config": true,
+        "enable_result_streaming": true,
+        "result_format": "json",
+        "heartbeat_interval_s": 30
+    },
+    
+    "storage": {
+        "enable_face_db": true,
+        "face_db_type": "sqlite",
+        "face_db_file": "/opt/face_db/faces.db",
+        "enable_image_save": false,
+        "image_save_path": "/opt/images/",
+        "max_images": 1000,
+        "enable_log_save": true,
+        "log_retention_days": 7
+    },
+    
+    "performance": {
+        "max_memory_usage_mb": 200,
+        "max_cpu_usage_percent": 80,
+        "enable_performance_monitor": true,
+        "monitor_interval_s": 10,
+        "enable_statistics": true,
+        "statistics_interval_s": 60,
+        "enable_profiling": false
+    },
+    
+    "security": {
+        "enable_authentication": false,
+        "api_key": "",
+        "enable_encryption": false,
+        "certificate_path": "",
+        "private_key_path": "",
+        "enable_access_control": false,
+        "allowed_ips": ["192.168.1.0/24"]
+    },
+    
+    "alerts": {
+        "enable_alerts": true,
+        "alert_types": ["face_detected", "face_recognized", "system_error"],
+        "enable_email_alerts": false,
+        "email_server": "",
+        "email_username": "",
+        "email_password": "",
+        "email_recipients": [],
+        "enable_webhook_alerts": false,
+        "webhook_url": "",
+        "webhook_timeout_s": 5
+    },
+    
+    "display": {
+        "enable_display": false,
+        "display_width": 640,
+        "display_height": 480,
+        "show_fps": true,
+        "show_confidence": true,
+        "show_landmarks": false,
+        "show_bounding_box": true,
+        "font_scale": 0.5,
+        "line_thickness": 2,
+        "colors": {
+            "face_box": [0, 255, 0],
+            "landmark": [255, 0, 0],
+            "text": [255, 255, 255],
+            "background": [0, 0, 0]
+        }
+    },
+    
+    "advanced": {
+        "enable_gpu_acceleration": false,
+        "gpu_device_id": 0,
+        "enable_model_optimization": true,
+        "model_precision": "fp16",
+        "enable_batch_processing": false,
+        "batch_size": 1,
+        "enable_pipeline_optimization": true,
+        "pipeline_stages": 3
+    }
+}

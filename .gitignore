@@ -1,0 +1,110 @@
+# 编译生成文件
+*.o
+*.ko
+*.obj
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+
+# 库文件
+*.a
+*.la
+*.lo
+*.so
+*.so.*
+*.dylib
+
+# 可执行文件
+*.exe
+*.out
+*.app
+*.dll
+
+# 调试文件
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# 内核模块
+*.mod.c
+*.mod
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+
+# 构建目录
+build/
+build-*/
+dist/
+target/
+
+# CMake生成文件
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# 依赖目录
+node_modules/
+vendor/
+
+# 日志文件
+*.log
+*.log.*
+
+# 临时文件
+*.tmp
+*.temp
+*~
+.#*
+\#*#
+
+# 系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 备份文件
+*.bak
+*.backup
+*.old
+
+# 测试文件
+test_results/
+coverage/
+*.gcov
+*.gcda
+*.gcno
+
+# 文档生成
+docs/_build/
+docs/html/
+docs/latex/
+
+# 固件文件
+*.img
+*.tar.gz
+*.zip
+
+# 配置文件（包含敏感信息）
+config/local.conf
+.env
+*.key
+*.pem
+*.crt
