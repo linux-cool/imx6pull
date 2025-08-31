@@ -135,6 +135,13 @@ typedef enum {
     PAIRING_METHOD_NUMERIC_COMPARISON = 0x03 // 数值比较
 } pairing_method_t;
 
+// 配对安全级别
+typedef enum {
+    PAIRING_SECURITY_LOW = 0,      // 低安全级别（仅工作）
+    PAIRING_SECURITY_MEDIUM = 1,   // 中安全级别（密码输入）
+    PAIRING_SECURITY_HIGH = 2      // 高安全级别（OOB认证）
+} pairing_security_t;
+
 // 配对配置
 typedef struct {
     uint8_t io_capability;                // I/O能力
@@ -392,6 +399,7 @@ typedef enum {
     BINDING_STATE_BLUETOOTH_PAIRING, // 蓝牙配对中
     BINDING_STATE_WIFI_CONFIG,      // WiFi配置中
     BINDING_STATE_WIFI_CONNECTING,  // WiFi连接中
+    BINDING_STATE_SECURITY_ACTIVATED, // 安全控制激活
     BINDING_STATE_COMPLETE,         // 绑定完成
     BINDING_STATE_FAILED            // 绑定失败
 } binding_state_t;
@@ -403,6 +411,8 @@ private:
     ble_pairing_info_t pairing_info;
     wifi_connection_info_t wifi_info;
     uint8_t retry_count;
+    whitelist_manager_t* whitelist;
+    security_controller_t* security;
     
 public:
     BindingManager();
@@ -410,6 +420,7 @@ public:
     bool handle_bluetooth_pairing();
     bool handle_wifi_config();
     bool handle_wifi_connection();
+    bool activate_security_controls();
     binding_state_t get_state();
     
 private:
@@ -417,6 +428,7 @@ private:
     void handle_binding_success();
     void handle_binding_failure();
     bool validate_binding_data();
+    bool setup_device_whitelist();
 };
 ```
 
@@ -614,6 +626,309 @@ void BindingManager::handle_binding_failure() {
 2. **云端管理**：通过云端统一管理设备配置
 3. **标准化**：行业标准的绑定流程和协议
 4. **安全性增强**：更强的身份验证和加密机制
+
+---
+
+## 7. 安全控制实现
+
+### 7.1 绑定后安全控制流程
+
+#### 7.1.1 安全控制激活
+```c
+// 激活安全控制
+bool BindingManager::activate_security_controls() {
+    if (state != BINDING_STATE_WIFI_CONNECTING) {
+        return false;
+    }
+    
+    // 设置设备白名单
+    if (!setup_device_whitelist()) {
+        return false;
+    }
+    
+    // 激活安全控制器
+    if (!security->activate()) {
+        return false;
+    }
+    
+    // 更新广播状态为仅白名单可见
+    if (!update_advertising_to_whitelist_only()) {
+        return false;
+    }
+    
+    // 进入安全控制激活状态
+    state_transition(BINDING_STATE_SECURITY_ACTIVATED);
+    
+    return true;
+}
+
+// 设置设备白名单
+bool BindingManager::setup_device_whitelist() {
+    // 添加已配对设备到白名单
+    if (!whitelist->add_device(pairing_info.mac_address, 
+                              pairing_info.device_name, 
+                              PERMISSION_OWNER)) {
+        return false;
+    }
+    
+    // 启用白名单过滤
+    whitelist->enable_whitelist();
+    
+    // 保存白名单到Flash
+    return whitelist->save_to_flash();
+}
+
+// 更新广播为仅白名单可见
+bool update_advertising_to_whitelist_only() {
+    // 停止当前广播
+    esp_ble_gap_stop_advertising();
+    
+    // 配置为仅白名单可见模式
+    ble_gap_adv_params_t adv_params = {0};
+    adv_params.adv_interval_min = 100;  // 100ms
+    adv_params.adv_interval_max = 500;  // 500ms
+    adv_params.adv_type = BLE_GAP_ADV_TYPE_IND;
+    
+    // 设置广播过滤策略
+    esp_ble_gap_set_adv_filter_policy(ESP_BLE_ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY);
+    
+    // 启动新的广播
+    return (esp_ble_gap_start_advertising(&adv_params) == ESP_OK);
+}
+```
+
+#### 7.1.2 白名单管理
+```c
+// 白名单管理器
+class WhitelistManager {
+private:
+    bound_device_t* devices;
+    uint8_t device_count;
+    uint8_t max_devices;
+    bool whitelist_enabled;
+    
+public:
+    WhitelistManager(uint8_t max_dev);
+    bool add_device(const uint8_t* mac_addr, const char* name, permission_level_t level);
+    bool remove_device(const uint8_t* mac_addr);
+    bool is_device_whitelisted(const uint8_t* mac_addr);
+    bool enable_whitelist();
+    bool disable_whitelist();
+    bool save_to_flash();
+    bool load_from_flash();
+    
+private:
+    bool find_device_index(const uint8_t* mac_addr, uint8_t* index);
+    void compact_whitelist();
+};
+
+// 添加设备到白名单
+bool WhitelistManager::add_device(const uint8_t* mac_addr, const char* name, permission_level_t level) {
+    if (device_count >= max_devices) {
+        return false;
+    }
+    
+    // 检查设备是否已存在
+    uint8_t existing_index;
+    if (find_device_index(mac_addr, &existing_index)) {
+        // 更新现有设备
+        bound_device_t* device = &devices[existing_index];
+        strncpy(device->device_name, name, sizeof(device->device_name) - 1);
+        device->permission_level = level;
+        device->bind_time = time(NULL);
+        return true;
+    }
+    
+    // 添加新设备
+    bound_device_t* new_device = &devices[device_count];
+    memcpy(new_device->mac_address, mac_addr, 6);
+    strncpy(new_device->device_name, name, sizeof(new_device->device_name) - 1);
+    new_device->bind_time = time(NULL);
+    new_device->permission_level = level;
+    new_device->is_active = true;
+    
+    device_count++;
+    return true;
+}
+```
+
+#### 7.1.3 连接过滤实现
+```c
+// 连接过滤器
+class ConnectionFilter {
+private:
+    WhitelistManager* whitelist;
+    
+public:
+    ConnectionFilter(WhitelistManager* wl_manager);
+    bool is_connection_allowed(const uint8_t* mac_addr);
+    bool filter_connection_request(const uint8_t* mac_addr);
+    
+private:
+    bool apply_whitelist_filter(const uint8_t* mac_addr);
+    bool apply_rate_limiting(const uint8_t* mac_addr);
+};
+
+// 检查连接是否允许
+bool ConnectionFilter::is_connection_allowed(const uint8_t* mac_addr) {
+    // 1. 应用白名单过滤
+    if (!apply_whitelist_filter(mac_addr)) {
+        return false;
+    }
+    
+    // 2. 应用速率限制
+    if (!apply_rate_limiting(mac_addr)) {
+        return false;
+    }
+    
+    return true;
+}
+
+// 应用白名单过滤
+bool ConnectionFilter::apply_whitelist_filter(const uint8_t* mac_addr) {
+    if (!whitelist || !whitelist->is_whitelist_enabled()) {
+        return true; // 无白名单时允许所有连接
+    }
+    
+    return whitelist->is_device_whitelisted(mac_addr);
+}
+```
+
+### 7.2 广播控制策略
+
+#### 7.2.1 动态广播控制
+```c
+// 广播控制器
+class AdvertisingController {
+private:
+    advertising_state_t current_state;
+    WhitelistManager* whitelist;
+    
+public:
+    AdvertisingController(WhitelistManager* wl_manager);
+    bool set_advertising_state(advertising_state_t state);
+    bool update_advertising_based_on_whitelist();
+    bool start_whitelist_only_advertising();
+    
+private:
+    void configure_advertising_parameters(advertising_state_t state);
+    void update_advertising_data();
+};
+
+// 基于白名单更新广播
+bool AdvertisingController::update_advertising_based_on_whitelist() {
+    if (!whitelist || whitelist->get_device_count() == 0) {
+        // 无绑定设备时，完全可见
+        return set_advertising_state(ADV_STATE_VISIBLE);
+    } else {
+        // 有绑定设备时，仅白名单可见
+        return set_advertising_state(ADV_STATE_WHITELIST_ONLY);
+    }
+}
+
+// 设置仅白名单可见广播
+bool AdvertisingController::set_advertising_state(advertising_state_t state) {
+    current_state = state;
+    
+    switch (state) {
+        case ADV_STATE_VISIBLE:
+            // 完全可见：快速广播，所有设备可见
+            configure_advertising_parameters(20, 100, BLE_GAP_ADV_TYPE_IND);
+            break;
+            
+        case ADV_STATE_WHITELIST_ONLY:
+            // 仅白名单可见：慢速广播，减少被发现概率
+            configure_advertising_parameters(100, 500, BLE_GAP_ADV_TYPE_IND);
+            break;
+            
+        case ADV_STATE_HIDDEN:
+            // 完全隐藏：极慢广播或停止广播
+            configure_advertising_parameters(1000, 2000, BLE_GAP_ADV_TYPE_IND);
+            break;
+    }
+    
+    return true;
+}
+```
+
+### 7.3 安全状态监控
+
+#### 7.3.1 安全状态管理
+```c
+// 安全状态
+typedef enum {
+    SECURITY_STATE_DISABLED = 0,    // 安全控制禁用
+    SECURITY_STATE_ENABLED,         // 安全控制启用
+    SECURITY_STATE_LOCKDOWN,        // 安全锁定模式
+    SECURITY_STATE_MAINTENANCE      // 维护模式
+} security_state_t;
+
+// 安全控制器
+class SecurityController {
+private:
+    security_state_t state;
+    WhitelistManager* whitelist;
+    ConnectionFilter* filter;
+    AdvertisingController* advertising;
+    
+public:
+    SecurityController(WhitelistManager* wl, ConnectionFilter* cf, AdvertisingController* ac);
+    bool activate();
+    bool deactivate();
+    bool enable_lockdown_mode();
+    bool disable_lockdown_mode();
+    security_state_t get_state();
+    
+private:
+    void update_security_status();
+    void log_security_event(const char* event);
+};
+```
+
+### 7.4 安全配置示例
+
+#### 7.4.1 完整安全配置
+```c
+// 安全配置结构
+typedef struct {
+    bool whitelist_enabled;         // 白名单启用
+    uint8_t max_bound_devices;      // 最大绑定设备数
+    bool rate_limiting_enabled;     // 速率限制启用
+    uint32_t max_connection_attempts; // 最大连接尝试次数
+    uint32_t rate_limit_window;     // 速率限制时间窗口
+    bool anomaly_detection_enabled; // 异常检测启用
+} security_config_t;
+
+// 默认安全配置
+security_config_t default_security_config = {
+    .whitelist_enabled = true,
+    .max_bound_devices = 10,
+    .rate_limiting_enabled = true,
+    .max_connection_attempts = 5,
+    .rate_limit_window = 300,      // 5分钟
+    .anomaly_detection_enabled = true
+};
+
+// 应用安全配置
+bool apply_security_config(const security_config_t* config) {
+    // 1. 配置白名单
+    whitelist->set_max_devices(config->max_bound_devices);
+    whitelist->enable_whitelist();
+    
+    // 2. 配置连接过滤
+    filter->enable_rate_limiting(config->max_connection_attempts, config->rate_limit_window);
+    
+    // 3. 配置异常检测
+    if (config->anomaly_detection_enabled) {
+        enable_anomaly_detection();
+    }
+    
+    // 4. 更新广播状态
+    advertising->update_advertising_based_on_whitelist();
+    
+    return true;
+}
+```
 
 ---
 
